@@ -23,6 +23,7 @@ necesita para saber qué podrá hacer después.
 ```text
 s = ⟨ zona_actual, bateria_restante, carga_robot, objetos_en_suelo, estado_puertas, estado_paneles, estado_estaciones ⟩
 ```
+### Respuesta
 
 El estado corresponde al panorama completo actualmente del robot y la instalación, por lo que cualquier cambio genera un estado distinto y afecta las acciones futuras del agente. Teniendo esto en cuenta se definieron las siguientes variables para el robot:
 
@@ -53,6 +54,7 @@ Pase ese filtro con cada variable. En particular:
   puede soltarlos (`DROP`);
 - los cambios permanentes (puertas, paneles, estaciones) condicionan el futuro.
 
+### Respuesta
 
 - zona_actual: Esta variable es necesaria porque determina los corredores que el robot puede atravesar, los objetos que puede recoger o dejar y los elementos con los que puede interactuar. Dos estados con distinta zona pueden tener acciones `MOVE`, `PICKUP`, `DROP` o `INTERACT` diferentes.
 
@@ -74,6 +76,7 @@ Peso de la carga, grafo de corredores, costos, capacidad, batería máxima, etc.
 Si se puede calcular a partir del estado y de las constantes del escenario, no
 es una variable de estado.
 
+### Respuesta
 
 A partir de carga_robot y de las propiedades de los objetos se puede calcular:
 
@@ -112,6 +115,8 @@ Materiales equivalentes por tipo (§2.2): no les ponga ids artificiales.
 Estructuras canónicas (conjuntos, contadores) para que `==` y el hash coincidan
 con la equivalencia física. Sin eso Graph Search explota.
 
+### Respuesta
+
 `g(n)` representa el costo acumulado del camino. El padre y la acción anterior sirven para reconstruir el plan cuando se encuentra una solución. Si estos datos se incluyeran en el estado, dos caminos que llegan a la misma situación física se considerarían estados diferentes y CLOSED no podría evitar volverlos a explorar.
 
 Dos configuraciones representan el mismo estado cuando tienen los mismos valores en todas las variables para realizar acciones futuras:
@@ -141,6 +146,8 @@ el suelo? Si no habilita ninguna acción futura, incluirla multiplica el espacio
 con permutaciones de objetos muertos. Justifique si las ignora y por qué eso
 no pierde el óptimo.
 
+### Respuesta
+
 Una llave es irrelevante después de que la puerta correspondiente está abierta, porque dicha puerta ya no necesita la llave para atravesarse. Del manera similar, una herramienta deja de ser relevante cuando todos los paneles que requieren dicha herramienta ya están reparados. En esos casos, la posición de esos objetos en el suelo ya no distingue situaciones físicas útiles: cambiarla no modifica los movimientos, recogidas, reparaciones ni activaciones disponibles.
 
 Para reducir el espacio de búsqueda, los objetos muertos que estén en el suelo se representan mediante una ubicación única o se eliminan de la firma lógica del estado. No se generan sucesores `DROP` ni `PICKUP` destinados únicamente a mover o recuperar un objeto muerto, porque esas acciones no permiten cumplir ninguna condición adicional de la misión y solo aumentan el costo del plan.
@@ -164,6 +171,7 @@ Puede usar una tabla:
 ```text
 Acción | Precondiciones | Efectos | Costo
 ```
+### Respuesta
 
 Las acciones internas representan las operaciones que el agente puede ejecutar sobre el mundo. Toda acción es aplicable únicamente si se cumplen sus
 precondiciones y, además, si la batería restante es mayor al costo de la acción.
@@ -207,7 +215,15 @@ Usted puede (y se espera que) restrinja `DROP` —y cualquier otra acción— a 
 casos que un plan **óptimo** podría necesitar. Justifique que ningún plan de
 costo mínimo usa una acción que usted dejó de generar.
 
-(completar: en particular, cuándo genera `DROP` y por qué)
+### Respuesta
+
+El simulador define qué acciones son legalmente posibles, mientras que `Applicable` define cuáles son relevantes para la búsqueda. Por eso, el agente puede generar menos acciones que las permitidas por el contrato.
+
+Aunque `DROP` es legal en cualquier zona, no se generan todas sus posibilidades, porque eso produciría muchas configuraciones innecesarias. El agente solo genera `DROP` cuando necesita liberar espacio para recoger un objeto importante o cuando el objeto ya dejó de ser útil, como una llave cuya puerta ya está abierta.
+
+No se generan `DROP` para mover objetos entre zonas sin un beneficio para la misión. Estas acciones pueden eliminarse del plan sin impedir ninguna acción futura y reduciendo el costo, por lo que no se pierde ningún plan óptimo.
+
+Los objetos que todavía sirven para abrir puertas, reparar paneles o cumplir dependencias se conservan en el estado. Las acciones generadas siempre se traducen después al formato aceptado por el contrato.
 
 ---
 
@@ -221,35 +237,72 @@ s  --a-->  s'     solo si a ∈ Applicable(s)
 batería, entorno persistente. Qué se preserva. Si canonicaliza el estado tras
 una acción, dígalo aquí.
 
-(completar)
+### Respuesta
+
+Una acción solo se aplica si cumple sus precondiciones y hay batería suficiente. El resultado siempre es determinista ya que el mismo estado y la misma acción producen
+el mismo estado siguiente.
+
+Una acción puede cambiar:
+
+- La zona del robot.
+- La batería.
+- La carga y los objetos en el suelo.
+- El estado de puertas, paneles y estaciones.
+
+La información que la acción no modifica permanece igual. Por ejemplo, las herramientas no se consumen al reparar, las puertas abiertas no se cierran y las
+estaciones activadas permanecen ONLINE.
+
+Después de cada acción, el estado se organiza de forma canónica para que estados físicamente iguales tengan la misma representación y no se exploren dos veces.
 
 ---
 
 ## Prueba de meta
 
 ```text
-Goal(s) ⟺ …
+Goal(s) ⟺ todas las estaciones requeridas están ONLINE
 ```
 
 La misión se verifica sobre el **estado final del mundo**, no sobre haber
 ejecutado una lista de tareas. ¿Las puertas y los paneles son parte de la meta
 o solo medios?
 
-(completar)
+### Respuesta
+
+Las puertas abiertas y los paneles reparados no forman parte de la meta. Sin embargo, son pasos necesarios para poder activar las estaciones y cumplir la meta.
+
+La búsqueda revisa el estado final del mundo, no solo las acciones realizadas. Por eso, cualquier plan es válido si termina con todas las estaciones requeridas activadas.
 
 ---
 
 ## Función de costo
 
+La función de costo suma lo que cuesta cada acción del plan:
+
 ```text
-g(n) = …
+g(n) = costo de todas las acciones realizadas hasta llegar a n
 ```
 
 Debe ser la suma de los **costos oficiales** del escenario (no el número de
 pasos). Explique por qué minimizar pasos no es lo mismo que minimizar costo
 en este mundo (hay corredores baratos y caros).
 
-(completar)
+### Respuesta
+
+El estado inicial tiene costo cero: 
+
+```text
+g(n_inicial) = 0
+```
+Los costos se toman del escenario. Por ejemplo:
+
+- Moverse cuesta lo definido por el corredor.
+- Recoger y dejar objetos tienen sus propios costos.
+- Abrir puertas, reparar paneles y activar estaciones usan el costo de interacción.
+- Recargar usa el costo de recarga.
+
+La mejor solución no es necesariamente la que tiene menos pasos. Un plan puede tener pocos pasos, pero usar corredores costosos. Otro plan puede tener más pasos y ser más barato en total. Es por esta razón que minimizar pasos no es lo mismo que minimizar el costo en este caso.
+
+Por eso, el agente compara los planes usando su costo total y elige el que cumple la meta con la menor función de costo.
 
 ---
 
@@ -271,7 +324,41 @@ Discuta:
 Graph Search exige una lista CLOSED sobre estados **canónicos**. Explique cómo
 evita reexplorar la misma situación física.
 
-(completar)
+### Respuesta
+
+La estrategia que considero ideal para el mundo es **Uniform Cost Search (UCS)** porque los costos de las acciones no son iguales y se necesita encontrar el plan válido de menor costo. Siendo esto lo que hace UCS el mejor candidato para resolver el problema dado que siempre expande primero el nodo con menor costo acumulado.
+
+### Completitud
+
+UCS es completo si el espacio de estados es finito o si todos los costos son positivos y existe una solución alcanzable. Si no existe solución, la búsqueda termina cuando `OPEN` queda vacía y se retorna `FAILURE`.
+
+### Optimalidad
+
+UCS es óptimo cuando todos los costos son positivos. La prueba de meta se realiza cuando el nodo se extrae de `OPEN`, no cuando se genera. En ese momento, ese nodo
+es el de menor costo entre todos los pendientes, por lo que la primera solución encontrada es la de menor costo.
+
+### Tiempo y espacio
+
+El tiempo y la memoria dependen del número de sucesores que se generan por estado. El factor de ramificación no depende solamente de las zonas del mapa, también aumenta si se generan muchos `PICKUP` y `DROP`.
+
+Por eso, el agente restringe los `DROP` a los casos relevantes y evita explorar objetos que ya no pueden ayudar a la misión. Si cada objeto pudiera dejarse en cualquier zona, el número de estados crecería rápidamente.
+
+### Condiciones para mantener las garantías
+
+Las garantías de UCS pueden fallar o dejar de estar aseguradas si:
+
+- Existen costos negativos.
+- Se usan costos cero sin controlar correctamente los empates.
+- Los estados no tienen una representación canónica;
+- la lista `CLOSED` no reconoce estados físicamente iguales.
+- `OPEN` no se procesa hasta quedar vacía cuando no existe solución.
+
+### Estados repetidos
+
+Se utiliza Graph Search con una lista `CLOSED`. Cada estado se convierte a una representación canónica usando colecciones ordenadas o inmutables y cantidades
+para los materiales equivalentes.
+
+Así, dos caminos diferentes que llegan a la misma situación física producen el mismo estado lógico. `CLOSED` permite reconocerlo y evitar explorarlo nuevamente. Además, puede descartarse un estado dominado si otro camino llega a la misma configuración con un costo menor o igual y con más batería restante.
 
 ### Batería como recurso
 
@@ -283,7 +370,20 @@ futuro: está dominado. Tratar cada nivel de batería como un mundo distinto,
 sin esa observación, hace que UCS recorra detours inútiles hasta agotar
 memoria. Justifique cómo CLOSED aprovecha (o no) esta dominancia.
 
-(completar)
+### Respuesta
+
+La batería forma parte del estado porque determina qué acciones puede realizar el robot. Sin embargo, no es necesario conservar todos los caminos que llegan a la misma configuración del mundo.
+
+Para cada configuración física, se comparan los nodos según:
+
+- Costo acumulado.
+- Batería restante.
+
+Un nodo está dominado si existe otro con la misma zona, carga, objetos y entorno, pero con un costo menor o igual y más batería restante. El nodo dominado se descarta porque no puede producir una solución mejor.
+
+`CLOSED` guarda los estados canónicos y, además, mantiene las mejores combinaciones no dominadas de costo y batería para cada configuración física. Así se evita explorar desvíos que solo gastan batería y tienen un costo mayor.
+
+No se puede eliminar un estado únicamente por tener un costo más alto ya que podría tener más batería y ser útil en el futuro. La poda solo se aplica cuando el otro nodo tiene al mismo tiempo menor o igual costo y mayor o igual batería.
 
 ---
 
@@ -300,4 +400,21 @@ mal. Responda con sus palabras:
 4. ¿Por qué **no** es solución subir la capacidad, bajar las estaciones o
    ignorar la batería?
 
-(completar)
+### Respuesta
+
+1. Aunque el mapa solo tenga cinco zonas, cada objeto puede estar en el suelo de distintas zonas o dentro de la carga. Al combinar las posiciones de varios objetos, los estados posibles crecen rápidamente. La capacidad de 3 también produce muchas combinaciones diferentes de objetos transportados.
+
+2. `DROP` aumenta mucho la cantidad de estados. Si se genera en cualquier zona para cada objeto, el agente explora muchas posiciones que no ayudan a cumplir
+   la misión. Además, se pueden crear ciclos innecesarios de `DROP` y `PICKUP`.
+
+3. Para evitar explorar estados innecesarios, el agente utiliza las siguientes decisiones:
+
+   - Los materiales del mismo tipo se agrupan mediante cantidades.
+   - Los estados se guardan de forma canónica.
+   - No se generan `DROP` en zonas arbitrarias.
+   - No se siguen explorando las ubicaciones de objetos que ya no son útiles.
+   - Se descartan estados dominados por otro con menor costo y más batería.
+
+Estas decisiones no pierden el óptimo porque eliminan únicamente configuraciones equivalentes, acciones que no aportan nada al plan o caminos que son peores en costo y batería.
+
+4. No se debe aumentar la capacidad, eliminar estaciones ni ignorar la batería, porque esos datos pertenecen al escenario y pueden cambiar en otras pruebas. Hacerlo solo facilitaría este caso y podría generar planes incorrectos. La solución es representar bien el estado y generar únicamente las acciones necesarias.
