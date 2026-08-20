@@ -165,7 +165,32 @@ Puede usar una tabla:
 Acción | Precondiciones | Efectos | Costo
 ```
 
-(completar)
+Las acciones internas representan las operaciones que el agente puede ejecutar sobre el mundo. Toda acción es aplicable únicamente si se cumplen sus
+precondiciones y, además, si la batería restante es mayor al costo de la acción.
+
+| Acción | Precondiciones | Efectos | Costo |
+|---|---|---|---|
+| `MOVER(zona_destino)` | Existe un corredor entre la zona actual y la zona destino. Si el corredor tiene una puerta, esta debe estar abierta. La batería es suficiente. | El robot cambia a `zona_destino` y consume la energía correspondiente al corredor. | Costo oficial del corredor |
+| `RECOGER(objeto)` | El objeto está en el suelo de la zona actual y la carga todavía tiene espacio disponible. La batería es suficiente. | El objeto pasa del suelo a `carga_robot`. Si es un material, disminuye en uno la cantidad disponible en el suelo. | El costo de recoger objetos definido en el escenario |
+| `DEJAR(objeto)` | El objeto está en `carga_robot` y la batería es suficiente. Durante la búsqueda, la acción debe ser relevante para el plan. | El objeto sale de la carga y queda en el suelo de la zona actual. | El costo de dejar objetos definido en el escenario |
+| `ABRIR_PUERTA(puerta)` | El robot está en una de las zonas conectadas por la puerta, la puerta está cerrada y la llave correspondiente está en la carga. La batería es suficiente. | La puerta pasa a estar abierta. La llave permanece en la carga porque no se consume. | El costo de interactuar con el entorno |
+| `REPARAR_PANEL(panel)` | El robot está en la zona del panel, el panel está dañado y la carga contiene la herramienta y el material requeridos. La batería es suficiente. | El panel pasa a estar reparado, se consume una unidad del material y la herramienta permanece disponible. | El costo de interactuar con el entorno |
+| `ACTIVAR_ESTACION(estacion)` | El robot está en la zona de la estación, esta se encuentra `OFFLINE` y se cumplen todas sus dependencias: paneles reparados y estaciones activadas. La batería es suficiente. | La estación pasa a estar `ONLINE`. | El costo de interactuar con el entorno |
+| `RECARGAR(cargador)` | El robot está en la zona del cargador, la batería no está llena y hay energía suficiente para pagar la recarga. | Primero se descuenta el costo de la recarga y después la batería vuelve a su capacidad máxima. | El costo de recargar definido en el escenario |
+
+Restricción de `DEJAR` (`DROP`)
+
+Aunque el contrato permite dejar un objeto en cualquier zona, el agente no genera todas esas posibilidades durante la búsqueda. Hacerlo produciría muchas configuraciones que solo se diferencian por la ubicación de los objetos y aumentaría innecesariamente el espacio que debe explorar.
+
+El agente solo genera `DEJAR` cuando:
+
+- Necesita liberar espacio para recoger un objeto importante.
+- Deja el objeto en su zona de origen.
+- Deja el objeto en la zona donde será utilizado.
+- El objeto ya no es necesario, por ejemplo, una llave cuya puerta ya fue
+  abierta.
+
+Los objetos que todavía pueden abrir puertas, reparar paneles o cumplir dependencias se mantienen en el estado. Un objeto que ya no sea útil puede ignorarse respecto a su ubicación en el suelo, aunque si permanece en la carga todavía ocupa espacio y podría ser necesario dejarlo para recoger otro objeto.
 
 ### `Applicable` interno vs legalidad del contrato
 
