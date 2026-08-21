@@ -53,6 +53,33 @@ cd project/backend
 .\.venv\Scripts\activate
 python tests/test_demo_plan.py
 ```
+### Validación del entregable 3
+
+El proyecto incluye pruebas automatizadas para verificar las propiedades exigidas en el entregable 3. Estas pruebas se encuentran en `project/backend/tests/test_agent_validation.py` y cubren:
+
+- estados equivalentes generados por rutas distintas;
+- diferencia entre información relevante e irrelevante;
+- prioridad del costo total frente al número de acciones;
+- caso sin solución con retorno de `FAILURE`;
+- rutas alternativas y elección de la mejor solución.
+
+Para ejecutarlas:
+
+```bash
+cd project/backend
+.\.venv\Scripts\activate
+python tests/test_agent_validation.py
+```
+### Agente y endpoint de resolución
+
+El backend implementa el endpoint `POST /api/solve`, que recibe el escenario y devuelve:
+
+- si existe solución;
+- el plan de acciones;
+- el costo total del plan;
+- información suficiente para visualizar la ejecución en el frontend.
+
+La lógica del agente y la representación visual están separadas: el agente resuelve el problema internamente y luego traduce la solución al formato del contrato visual, mientras que el frontend solo reproduce la ejecución.
 
 ## Contrato visual vs agente (importante)
 
