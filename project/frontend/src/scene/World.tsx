@@ -1,9 +1,11 @@
 import { OrbitControls } from '@react-three/drei'
 import { useMemo } from 'react'
+import { checkGoal } from '../lib/executor'
 import { buildWalkable, cellKey, cellToWorld, generateWalls } from '../lib/grid'
 import { useSimStore } from '../store/simStore'
 import type { Scenario } from '../types'
 import { Robot } from './Robot'
+import { Confetti } from './Confetti'
 import {
   ChargerVoxel,
   KeyVoxel,
@@ -108,7 +110,7 @@ function Walls() {
         <mesh key={i} position={[w.x, w.y, w.z]}>
           <boxGeometry args={[w.w, w.h, w.d]} />
           <meshStandardMaterial color="#374151" roughness={0.65} />
-        </mesh>
+        </mesh> 
       ))}
     </group>
   )
@@ -135,11 +137,17 @@ function ZoneMarkers() {
 
 export function World() {
   const scenario = useSimStore((s) => s.scenario)
+  const runtime = useSimStore((s) => s.runtime)
   if (!scenario) return null
+
+  const goalCompleted = runtime ? checkGoal(scenario, runtime) : false
+  const confettiPosition: [number, number, number] = runtime
+    ? [runtime.robotPosition[0], runtime.robotPosition[1] + 1, runtime.robotPosition[2]]
+    : [0, 1, 0]
 
   return (
     <>
-      <color attach="background" args={['#002147']} />
+      <color attach="background" args={['#002147']} /> 
       <ambientLight intensity={0.9} />
       <directionalLight position={[14, 20, 10]} intensity={0.9} />
       <hemisphereLight args={['#f8fafc', '#94a3b8', 0.4]} />
@@ -147,6 +155,11 @@ export function World() {
       <Floors />
       <Walls />
       <ZoneMarkers />
+
+      <Confetti
+        position={confettiPosition}
+        active={goalCompleted}
+      />
 
       {scenario.doors.map((d) => (
         <SlidingDoor key={d.id} id={d.id} color={d.color} />
