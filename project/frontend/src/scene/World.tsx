@@ -107,7 +107,7 @@ function Walls() {
       {walls.map((w, i) => (
         <mesh key={i} position={[w.x, w.y, w.z]}>
           <boxGeometry args={[w.w, w.h, w.d]} />
-          <meshStandardMaterial color="#c5ccd6" roughness={0.65} />
+          <meshStandardMaterial color="#374151" roughness={0.65} />
         </mesh>
       ))}
     </group>
@@ -125,7 +125,7 @@ function ZoneMarkers() {
         return (
           <mesh key={z.id} position={[c[0], 0.02, c[2]]} rotation={[-Math.PI / 2, 0, 0]}>
             <circleGeometry args={[0.3, 16]} />
-            <meshBasicMaterial color="#94a3b8" transparent opacity={0.3} />
+            <meshBasicMaterial color="#E2E8F0" transparent opacity={0.3} />
           </mesh>
         )
       })}
@@ -139,8 +139,8 @@ export function World() {
 
   return (
     <>
-      <color attach="background" args={['#dbe4ee']} />
-      <ambientLight intensity={0.85} />
+      <color attach="background" args={['#002147']} />
+      <ambientLight intensity={0.9} />
       <directionalLight position={[14, 20, 10]} intensity={0.9} />
       <hemisphereLight args={['#f8fafc', '#94a3b8', 0.4]} />
 
